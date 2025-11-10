@@ -1,13 +1,31 @@
 {
   "name": "account-switcher",
   "version": "1.0.0",
-  "description": "Account switcher for Claude Code and OpenAI Codex",
+  "description": "Switch between multiple Claude Code and OpenAI Codex accounts instantly without logging out",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder"
   },
-  "keywords": ["electron", "account", "switcher"],
+  "keywords": [
+    "claude-code",
+    "openai-codex",
+    "account-switcher",
+    "multi-account",
+    "account-manager",
+    "electron-app",
+    "desktop-app",
+    "productivity",
+    "developer-tools",
+    "ai-tools",
+    "codex",
+    "claude",
+    "anthropic",
+    "openai",
+    "credential-manager",
+    "login-manager",
+    "account-management"
+  ],
   "author": "",
   "license": "MIT",
   "devDependencies": {
