@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Switcher</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Account Switcher</h1>
+      <p class="subtitle">Switch between Claude Code and OpenAI Codex accounts</p>
+    </header>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="claude">Claude Code</button>
+      <button class="tab-btn" data-tab="codex">OpenAI Codex</button>
+    </div>
+
+    <!-- Claude Code Tab -->
+    <div class="tab-content active" id="claude-tab">
+      <div class="current-account">
+        <h2>Current Account</h2>
+        <div id="claude-current-info" class="account-info">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+
+      <div class="save-section">
+        <h3>Save Current Account</h3>
+        <div class="input-group">
+          <input type="text" id="claude-save-name" placeholder="Enter account name (e.g., Work, Personal)">
+          <button id="claude-save-btn" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+
+      <div class="accounts-list">
+        <h3>Saved Accounts</h3>
+        <div id="claude-accounts" class="accounts-grid">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OpenAI Codex Tab -->
+    <div class="tab-content" id="codex-tab">
+      <div class="current-account">
+        <h2>Current Account</h2>
+        <div id="codex-current-info" class="account-info">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+
+      <div class="save-section">
+        <h3>Save Current Account</h3>
+        <div class="input-group">
+          <input type="text" id="codex-save-name" placeholder="Enter account name (e.g., Work, Personal)">
+          <button id="codex-save-btn" class="btn btn-primary">Save</button>
+        </div>
+      </div>
+
+      <div class="accounts-list">
+        <h3>Saved Accounts</h3>
+        <div id="codex-accounts" class="accounts-grid">
+          <div class="loading">Loading...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="import-export-section">
+      <h3>Backup & Restore</h3>
+      <div class="button-group">
+        <button id="export-btn" class="btn btn-secondary">Export All Accounts</button>
+        <button id="import-btn" class="btn btn-secondary">Import Accounts</button>
+      </div>
+    </div>
+
+    <div class="notice">
+      <strong>Note:</strong> After switching accounts, you'll need to restart Claude Code or OpenAI Codex for changes to take effect.
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

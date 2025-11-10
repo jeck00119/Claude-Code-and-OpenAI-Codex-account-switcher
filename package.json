@@ -1,0 +1,24 @@
+{
+  "name": "account-switcher",
+  "version": "1.0.0",
+  "description": "Account switcher for Claude Code and OpenAI Codex",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "keywords": ["electron", "account", "switcher"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.account-switcher.app",
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    }
+  }
+}
