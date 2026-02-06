@@ -16,6 +16,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Account backup files (contain credentials)
+accounts-backup-*.json
+
 # Logs
 *.log
 npm-debug.log*
