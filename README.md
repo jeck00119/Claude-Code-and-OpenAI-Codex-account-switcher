@@ -14,8 +14,8 @@ Instantly switch between multiple accounts without logging out. Your saved accou
 
 2. Clone and launch — dependencies install automatically:
    ```bash
-   git clone https://github.com/jeck00119/Claude-Code-and-OpenAI-Codex-account-switcher.git
-   cd Claude-Code-and-OpenAI-Codex-account-switcher
+   git clone https://github.com/jeck00119/claude-codex-switcher.git
+   cd claude-codex-switcher
    ```
 
    | Platform | Command |
