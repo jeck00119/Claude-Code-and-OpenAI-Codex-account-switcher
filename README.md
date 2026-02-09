@@ -1,28 +1,24 @@
-# 🔄 Account Switcher for Claude Code & OpenAI Codex
+# Account Switcher for Claude Code & OpenAI Codex
 
-<div align="center">
-
-**Instantly switch between multiple accounts without logging out!**
+Instantly switch between multiple accounts without logging out.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Made with Electron](https://img.shields.io/badge/Made%20with-Electron-47848F?logo=electron)](https://www.electronjs.org/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)]()
 
-</div>
+---
+
+## Features
+
+- **Multi-Account Management** - Save and switch between unlimited accounts
+- **Token Usage Tracking** - Live usage stats for both Claude (OAuth API) and Codex (session files)
+- **Auto-Detection** - Automatically finds and identifies current logged-in accounts
+- **Backup & Restore** - Export/import all accounts to transfer between devices
+- **Real-Time Updates** - Polls for account changes every 5 seconds, usage every 60 seconds
 
 ---
 
-## 🎯 Why Use This?
-
-Stop wasting time logging in and out! This app lets you:
-- ✅ Save unlimited accounts with custom names
-- ✅ Switch between accounts with one click
-- ✅ Backup & restore accounts across devices
-- ✅ See account changes in real-time
-
----
-
-## 🚀 Quick Start
+## Quick Start
 
 1. **Clone and install**
    ```bash
@@ -31,23 +27,35 @@ Stop wasting time logging in and out! This app lets you:
    npm install
    ```
 
-2. **Launch the app**
-   - Double-click `start-hidden.vbs` (recommended)
-   - Or run `npm start`
+2. **Launch**
+
+   | Platform | Command |
+   |----------|---------|
+   | **Windows** | Double-click `start.bat` |
+   | **macOS / Linux** | `./start.sh` |
+   | **Any** | `npm start` |
+
+   By default the launcher runs without a terminal window. Use `--console` to see output:
+   ```bash
+   # Windows
+   start.bat --console
+
+   # macOS / Linux
+   ./start.sh --console
+   ```
 
 ---
 
-## 📖 How to Use
+## How to Use
 
 ### Save an Account
 1. Log into Claude Code or OpenAI Codex
-2. Open Account Switcher
-3. Enter a name and click "Save"
+2. Open Account Switcher — your current account is auto-detected
+3. The email is pre-filled as the account name — click **Save**
 
 ### Switch Accounts
-1. Click on a saved account
-2. Click "Switch"
-3. Restart Claude Code/Codex
+1. Click **Switch** on a saved account
+2. Restart Claude Code or Codex for changes to take effect
 
 ### Backup & Restore
 - **Export**: Click "Export All Accounts" to save a backup file
@@ -55,73 +63,15 @@ Stop wasting time logging in and out! This app lets you:
 
 ---
 
-## 🎨 Features
+## File Locations
 
-- 🔐 **Multi-Account Management** - Save and organize unlimited accounts
-- 💾 **Backup & Restore** - Transfer accounts between devices
-- 🔄 **Real-Time Updates** - Auto-refresh every 2 seconds
-- 🎯 **Beautiful UI** - Modern, professional interface
+### Credentials (read by the app)
+| Service | Files |
+|---------|-------|
+| **Claude Code** | `~/.claude/.credentials.json` (auth tokens)<br>`~/.claude/.claude.json` or `~/.claude.json` (account config) |
+| **OpenAI Codex** | `~/.codex/auth.json` (auth tokens)<br>`~/.codex/sessions/` (usage data) |
 
----
-
-## ❓ FAQ
-
-<details>
-<summary><b>Is this safe?</b></summary>
-
-Yes! All data is stored locally on your computer. This is open-source software - you can review the code yourself.
-</details>
-
-<details>
-<summary><b>Do I need to restart after switching?</b></summary>
-
-Yes, you must restart Claude Code or OpenAI Codex for the change to take effect.
-</details>
-
-<details>
-<summary><b>Can I use this on multiple computers?</b></summary>
-
-Yes! Use the Export/Import feature to transfer accounts between devices.
-</details>
-
-<details>
-<summary><b>Does this work on macOS/Linux?</b></summary>
-
-Yes! Works on Windows, macOS, and Linux.
-</details>
-
----
-
-## 🛠️ Building
-
-Create a standalone executable:
-```bash
-npm run build
-```
-
----
-
-## 🐛 Troubleshooting
-
-**Account Not Switching**
-- Restart Claude Code/Codex completely
-- Check that the saved account file exists
-
-**No Current Account Detected**
-- Make sure you're logged in first
-- Check credential files exist in default locations
-
----
-
-## 📍 File Locations
-
-### Credentials
-| Service | Location |
-|---------|----------|
-| **Claude Code** | `~/.claude/.credentials.json`<br>`~/.claude/.claude.json` |
-| **OpenAI Codex** | `~/.codex/auth.json` |
-
-### Saved Accounts
+### Saved Accounts (managed by the app)
 | Platform | Location |
 |----------|----------|
 | **Windows** | `%APPDATA%/account-switcher/accounts/` |
@@ -130,28 +80,44 @@ npm run build
 
 ---
 
-## 🤝 Contributing
+## Building
 
-Contributions welcome! Fork the repo, make your changes, and submit a PR.
-
-**Ideas:**
-- UI/UX improvements
-- Keyboard shortcuts
-- Desktop notifications
-- Multi-language support
+Create a standalone executable:
+```bash
+npm run build
+```
 
 ---
 
-## 📄 License
+## Troubleshooting
 
-MIT License - see [LICENSE](LICENSE) for details.
+**Account Not Switching**
+- Restart Claude Code/Codex completely
+- Check that the saved account files exist in the locations above
+
+**No Current Account Detected**
+- Make sure you're logged in to Claude Code or Codex first
+- On macOS, Claude Code uses the system Keychain instead of `.credentials.json`
+
+**Usage Stats Not Showing**
+- Claude: requires a valid OAuth access token (login to Claude Code first)
+- Codex: requires at least one Codex CLI session to exist in `~/.codex/sessions/`
 
 ---
 
-<div align="center">
+## FAQ
 
-[Report Bug](https://github.com/jeck00119/Claude-Code-and-OpenAI-Codex-account-switcher/issues) · [Request Feature](https://github.com/jeck00119/Claude-Code-and-OpenAI-Codex-account-switcher/issues)
+**Is this safe?**
+All data is stored locally. Credentials never leave your machine. The source is open for review.
 
-⭐ Star this repo if you find it helpful!
+**Does this work on macOS/Linux?**
+Yes. Note that on macOS, Claude Code stores credentials in the system Keychain rather than a file, so account detection may not work there.
 
-</div>
+**Can I use this on multiple computers?**
+Yes — use the Export/Import feature to transfer accounts.
+
+---
+
+## License
+
+MIT
