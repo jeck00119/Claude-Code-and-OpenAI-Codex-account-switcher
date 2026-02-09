@@ -19,6 +19,10 @@ Thumbs.db
 # Account backup files (contain credentials)
 accounts-backup-*.json
 
+# Build output
+dist/
+build/
+
 # Logs
 *.log
 npm-debug.log*

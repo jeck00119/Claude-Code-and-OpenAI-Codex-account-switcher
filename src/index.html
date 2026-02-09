@@ -3,10 +3,64 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'">
   <title>Account Switcher</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Password Login Modal -->
+  <div class="modal-overlay" id="password-modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">Account Switcher</div>
+      <div class="modal-body">
+        <!-- Login Form (returning user) -->
+        <div id="password-login-form" style="display:none">
+          <p class="modal-desc">Enter your password to unlock.</p>
+          <div class="modal-input-group">
+            <input type="password" id="password-login-input" placeholder="Password" autocomplete="off">
+          </div>
+          <p class="modal-error" id="password-login-error"></p>
+          <button class="modal-btn" id="password-login-btn">Unlock</button>
+        </div>
+        <!-- Setup Form (first time) -->
+        <div id="password-setup-form" style="display:none">
+          <p class="modal-desc">Create a password to encrypt your saved accounts.</p>
+          <div class="modal-input-group">
+            <input type="password" id="password-setup-input" placeholder="New password" autocomplete="off">
+          </div>
+          <div class="modal-input-group">
+            <input type="password" id="password-setup-confirm" placeholder="Confirm password" autocomplete="off">
+          </div>
+          <p class="modal-error" id="password-setup-error"></p>
+          <button class="modal-btn" id="password-setup-btn">Set Password</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div class="modal-overlay" id="change-password-modal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">Change Password</div>
+      <div class="modal-body">
+        <div class="modal-input-group">
+          <input type="password" id="change-password-old" placeholder="Current password" autocomplete="off">
+        </div>
+        <div class="modal-input-group">
+          <input type="password" id="change-password-new" placeholder="New password" autocomplete="off">
+        </div>
+        <div class="modal-input-group">
+          <input type="password" id="change-password-confirm" placeholder="Confirm new password" autocomplete="off">
+        </div>
+        <p class="modal-error" id="change-password-error"></p>
+        <div class="modal-button-row">
+          <button class="modal-btn modal-btn-secondary" id="change-password-cancel">Cancel</button>
+          <button class="modal-btn" id="change-password-btn">Change Password</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="container">
     <header>
       <h1>Account Switcher</h1>
@@ -114,6 +168,7 @@
         <div class="button-group">
           <button id="export-btn" class="btn btn-secondary">Export All Accounts</button>
           <button id="import-btn" class="btn btn-secondary">Import Accounts</button>
+          <button id="change-password-open-btn" class="btn btn-secondary">Change Password</button>
         </div>
       </div>
     </div>

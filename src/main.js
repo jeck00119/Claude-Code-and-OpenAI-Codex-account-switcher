@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const https = require('https');
+const crypto = require('crypto');
 
 const HOME_DIR = os.homedir();
 const CLAUDE_CREDS = path.join(HOME_DIR, '.claude', '.credentials.json');
@@ -10,6 +11,17 @@ const CLAUDE_CONFIG_PRIMARY = path.join(HOME_DIR, '.claude', '.claude.json');
 const CLAUDE_CONFIG_FALLBACK = path.join(HOME_DIR, '.claude.json');
 const CODEX_AUTH = path.join(HOME_DIR, '.codex', 'auth.json');
 const ACCOUNTS_DIR = path.join(app.getPath('userData'), 'accounts');
+const PASSWORD_CONFIG_PATH = path.join(app.getPath('userData'), 'password.json');
+
+// Encryption constants
+const PBKDF2_ITERATIONS = 100000;
+const KEY_LENGTH = 32;        // 256 bits for AES-256
+const SALT_LENGTH = 32;       // 256-bit salt
+const IV_LENGTH = 12;         // 96-bit IV for GCM
+const AUTH_TAG_LENGTH = 16;   // 128-bit auth tag
+
+// In-memory password (never written to disk)
+let currentPassword = null;
 
 // Create accounts directory if it doesn't exist
 if (!fs.existsSync(ACCOUNTS_DIR)) {
@@ -50,6 +62,183 @@ function ensurePathWithin(filePath, baseDir) {
   return resolved;
 }
 
+// ============================================
+// ENCRYPTION HELPERS
+// ============================================
+
+function deriveKey(password, salt) {
+  return crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha512');
+}
+
+function encryptData(plaintext, password) {
+  const salt = crypto.randomBytes(SALT_LENGTH);
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const key = deriveKey(password, salt);
+
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv, { authTagLength: AUTH_TAG_LENGTH });
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  return {
+    encrypted: true,
+    version: 1,
+    salt: salt.toString('hex'),
+    iv: iv.toString('hex'),
+    authTag: authTag.toString('hex'),
+    ciphertext: encrypted.toString('hex')
+  };
+}
+
+function decryptData(envelope, password) {
+  const salt = Buffer.from(envelope.salt, 'hex');
+  const iv = Buffer.from(envelope.iv, 'hex');
+  const authTag = Buffer.from(envelope.authTag, 'hex');
+  const ciphertext = Buffer.from(envelope.ciphertext, 'hex');
+  const key = deriveKey(password, salt);
+
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv, { authTagLength: AUTH_TAG_LENGTH });
+  decipher.setAuthTag(authTag);
+  const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+  return decrypted.toString('utf8');
+}
+
+function isEncryptedEnvelope(data) {
+  return data && data.encrypted === true && data.version && data.salt && data.iv && data.authTag && data.ciphertext;
+}
+
+// Read an account file, decrypting if necessary
+function readAccountFile(filePath) {
+  const raw = fs.readFileSync(filePath, 'utf8');
+  const data = JSON.parse(raw);
+
+  if (isEncryptedEnvelope(data)) {
+    if (!currentPassword) throw new Error('Password required to read encrypted file');
+    const decrypted = decryptData(data, currentPassword);
+    return JSON.parse(decrypted);
+  }
+
+  return data;
+}
+
+// Write an account file, always encrypting if password is set
+function writeAccountFile(filePath, data) {
+  if (currentPassword) {
+    const plaintext = JSON.stringify(data, null, 2);
+    const envelope = encryptData(plaintext, currentPassword);
+    fs.writeFileSync(filePath, JSON.stringify(envelope, null, 2), 'utf8');
+  } else {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+  }
+}
+
+// ============================================
+// PASSWORD MANAGEMENT
+// ============================================
+
+function isPasswordConfigured() {
+  return fs.existsSync(PASSWORD_CONFIG_PATH);
+}
+
+function createPasswordConfig(password) {
+  const salt = crypto.randomBytes(SALT_LENGTH);
+  const hash = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, 'sha512');
+  const config = {
+    salt: salt.toString('hex'),
+    hash: hash.toString('hex'),
+    iterations: PBKDF2_ITERATIONS,
+    algorithm: 'pbkdf2-sha512'
+  };
+  fs.writeFileSync(PASSWORD_CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8');
+}
+
+function verifyPassword(password) {
+  if (!isPasswordConfigured()) return false;
+  const config = JSON.parse(fs.readFileSync(PASSWORD_CONFIG_PATH, 'utf8'));
+  const salt = Buffer.from(config.salt, 'hex');
+  const expectedHash = Buffer.from(config.hash, 'hex');
+  const computedHash = crypto.pbkdf2Sync(password, salt, config.iterations || PBKDF2_ITERATIONS, KEY_LENGTH, 'sha512');
+  return crypto.timingSafeEqual(computedHash, expectedHash);
+}
+
+// Check if any encrypted files exist (orphaned from a previous password)
+function hasOrphanedEncryptedFiles() {
+  const services = ['claude', 'codex'];
+  for (const service of services) {
+    const serviceDir = path.join(ACCOUNTS_DIR, service);
+    if (!fs.existsSync(serviceDir)) continue;
+
+    const files = fs.readdirSync(serviceDir).filter(f => f.endsWith('.json'));
+    for (const file of files) {
+      try {
+        const data = JSON.parse(fs.readFileSync(path.join(serviceDir, file), 'utf8'));
+        if (isEncryptedEnvelope(data)) return true;
+      } catch (e) { /* skip */ }
+    }
+  }
+  return false;
+}
+
+// Migrate existing plain-text account files to encrypted
+function migrateExistingFiles(password) {
+  const services = ['claude', 'codex'];
+  for (const service of services) {
+    const serviceDir = path.join(ACCOUNTS_DIR, service);
+    if (!fs.existsSync(serviceDir)) continue;
+
+    const files = fs.readdirSync(serviceDir).filter(f => f.endsWith('.json'));
+    for (const file of files) {
+      const filePath = path.join(serviceDir, file);
+      try {
+        const raw = fs.readFileSync(filePath, 'utf8');
+        const data = JSON.parse(raw);
+        // Skip if already encrypted
+        if (isEncryptedEnvelope(data)) continue;
+        // Encrypt and overwrite
+        const plaintext = JSON.stringify(data, null, 2);
+        const envelope = encryptData(plaintext, password);
+        fs.writeFileSync(filePath, JSON.stringify(envelope, null, 2), 'utf8');
+      } catch (error) {
+        console.error(`Error migrating ${file}:`, error);
+      }
+    }
+  }
+}
+
+// Change password: decrypt all with old, re-encrypt with new
+function changePasswordFiles(oldPassword, newPassword) {
+  const services = ['claude', 'codex'];
+  // Phase 1: Decrypt all files into memory
+  const fileContents = [];
+  for (const service of services) {
+    const serviceDir = path.join(ACCOUNTS_DIR, service);
+    if (!fs.existsSync(serviceDir)) continue;
+
+    const files = fs.readdirSync(serviceDir).filter(f => f.endsWith('.json'));
+    for (const file of files) {
+      const filePath = path.join(serviceDir, file);
+      try {
+        const raw = fs.readFileSync(filePath, 'utf8');
+        const data = JSON.parse(raw);
+        let plaintext;
+        if (isEncryptedEnvelope(data)) {
+          plaintext = decryptData(data, oldPassword);
+        } else {
+          plaintext = JSON.stringify(data, null, 2);
+        }
+        fileContents.push({ filePath, plaintext });
+      } catch (error) {
+        throw new Error(`Failed to decrypt ${file}: ${error.message}`);
+      }
+    }
+  }
+
+  // Phase 2: Re-encrypt all files with new password
+  for (const { filePath, plaintext } of fileContents) {
+    const envelope = encryptData(plaintext, newPassword);
+    fs.writeFileSync(filePath, JSON.stringify(envelope, null, 2), 'utf8');
+  }
+}
+
 let mainWindow;
 
 function createWindow() {
@@ -67,7 +256,18 @@ function createWindow() {
     focusable: true
   });
 
-  mainWindow.loadFile('index.html');
+  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+  // Block navigation away from the app
+  mainWindow.webContents.on('will-navigate', (event) => {
+    event.preventDefault();
+  });
+
+  // Open external links in the system browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
 
   // Ensure window gets focus after loading
   mainWindow.once('ready-to-show', () => {
@@ -168,9 +368,17 @@ ipcMain.handle('get-saved-accounts', async () => {
   }
 });
 
+// Guard: require password authentication before account operations
+function requireAuthentication() {
+  if (isPasswordConfigured() && !currentPassword) {
+    throw new Error('Password authentication required. Please unlock the app first.');
+  }
+}
+
 // Save current account
 ipcMain.handle('save-account', async (event, { service, name }) => {
   try {
+    requireAuthentication();
     validateService(service);
     name = sanitizeAccountName(name);
     const serviceDir = path.join(ACCOUNTS_DIR, service);
@@ -193,8 +401,11 @@ ipcMain.handle('save-account', async (event, { service, name }) => {
       const credsDestPath = path.join(serviceDir, `${name}-credentials.json`);
       const configDestPath = path.join(serviceDir, `${name}-config.json`);
 
-      fs.copyFileSync(CLAUDE_CREDS, credsDestPath);
-      fs.copyFileSync(claudeConfigPath, configDestPath);
+      // Read plain files from live location, write encrypted to saved location
+      const credsData = JSON.parse(fs.readFileSync(CLAUDE_CREDS, 'utf8'));
+      const configData = JSON.parse(fs.readFileSync(claudeConfigPath, 'utf8'));
+      writeAccountFile(credsDestPath, credsData);
+      writeAccountFile(configDestPath, configData);
     } else {
       // For Codex, save auth.json only
       if (!fs.existsSync(CODEX_AUTH)) {
@@ -202,7 +413,8 @@ ipcMain.handle('save-account', async (event, { service, name }) => {
       }
 
       const destPath = path.join(serviceDir, `${name}.json`);
-      fs.copyFileSync(CODEX_AUTH, destPath);
+      const authData = JSON.parse(fs.readFileSync(CODEX_AUTH, 'utf8'));
+      writeAccountFile(destPath, authData);
     }
 
     return { success: true };
@@ -215,6 +427,7 @@ ipcMain.handle('save-account', async (event, { service, name }) => {
 // Switch to saved account
 ipcMain.handle('switch-account', async (event, { service, name }) => {
   try {
+    requireAuthentication();
     validateService(service);
     name = sanitizeAccountName(name);
     if (service === 'claude') {
@@ -228,18 +441,11 @@ ipcMain.handle('switch-account', async (event, { service, name }) => {
 
       const claudeConfigPath = getClaudeConfigPath();
 
-      // Create backups of current files
-      if (fs.existsSync(CLAUDE_CREDS)) {
-        fs.copyFileSync(CLAUDE_CREDS, `${CLAUDE_CREDS}.backup`);
-      }
-
-      if (fs.existsSync(claudeConfigPath)) {
-        fs.copyFileSync(claudeConfigPath, `${claudeConfigPath}.backup`);
-      }
-
-      // Restore saved account files
-      fs.copyFileSync(credsSourcePath, CLAUDE_CREDS);
-      fs.copyFileSync(configSourcePath, claudeConfigPath);
+      // Decrypt saved files and write plain to live location
+      const credsData = readAccountFile(credsSourcePath);
+      const configData = readAccountFile(configSourcePath);
+      fs.writeFileSync(CLAUDE_CREDS, JSON.stringify(credsData, null, 2), 'utf8');
+      fs.writeFileSync(claudeConfigPath, JSON.stringify(configData, null, 2), 'utf8');
     } else {
       // For Codex, restore auth.json only
       const sourcePath = path.join(ACCOUNTS_DIR, service, `${name}.json`);
@@ -248,13 +454,9 @@ ipcMain.handle('switch-account', async (event, { service, name }) => {
         return { success: false, error: 'Saved account not found' };
       }
 
-      // Create backup of current account
-      if (fs.existsSync(CODEX_AUTH)) {
-        fs.copyFileSync(CODEX_AUTH, `${CODEX_AUTH}.backup`);
-      }
-
-      // Restore saved account
-      fs.copyFileSync(sourcePath, CODEX_AUTH);
+      // Decrypt saved file and write plain to live location
+      const authData = readAccountFile(sourcePath);
+      fs.writeFileSync(CODEX_AUTH, JSON.stringify(authData, null, 2), 'utf8');
     }
 
     return { success: true };
@@ -319,9 +521,74 @@ ipcMain.handle('force-window-focus', async () => {
   return { success: false };
 });
 
+// ============================================
+// PASSWORD IPC HANDLERS
+// ============================================
+
+// Check if password is configured
+ipcMain.handle('password-check', async () => {
+  const configured = isPasswordConfigured();
+  // Detect orphaned encrypted files (password.json deleted but encrypted files remain)
+  const hasOrphaned = !configured && hasOrphanedEncryptedFiles();
+  return { configured, hasOrphaned };
+});
+
+// Setup new password (first time)
+ipcMain.handle('password-setup', async (event, { password }) => {
+  try {
+    if (isPasswordConfigured()) {
+      return { success: false, error: 'Password already configured' };
+    }
+    if (typeof password !== 'string' || password.length < 4) {
+      return { success: false, error: 'Password must be at least 4 characters' };
+    }
+    createPasswordConfig(password);
+    currentPassword = password;
+    migrateExistingFiles(password);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Verify password (login)
+ipcMain.handle('password-verify', async (event, { password }) => {
+  try {
+    if (!isPasswordConfigured()) {
+      return { success: false, error: 'No password configured' };
+    }
+    if (verifyPassword(password)) {
+      currentPassword = password;
+      return { success: true };
+    }
+    return { success: false, error: 'Incorrect password' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Change password
+ipcMain.handle('password-change', async (event, { oldPassword, newPassword }) => {
+  try {
+    if (typeof newPassword !== 'string' || newPassword.length < 4) {
+      return { success: false, error: 'New password must be at least 4 characters' };
+    }
+    if (!verifyPassword(oldPassword)) {
+      return { success: false, error: 'Current password is incorrect' };
+    }
+    changePasswordFiles(oldPassword, newPassword);
+    createPasswordConfig(newPassword);
+    currentPassword = newPassword;
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 // Export all saved accounts
 ipcMain.handle('export-accounts', async () => {
   try {
+    requireAuthentication();
     const exportData = {
       version: '1.0',
       exportDate: new Date().toISOString(),
@@ -332,7 +599,7 @@ ipcMain.handle('export-accounts', async () => {
     const claudeDir = path.join(ACCOUNTS_DIR, 'claude');
     const codexDir = path.join(ACCOUNTS_DIR, 'codex');
 
-    // Export Claude accounts
+    // Export Claude accounts (store encrypted envelopes as-is)
     if (fs.existsSync(claudeDir)) {
       const files = fs.readdirSync(claudeDir);
       const accounts = {};
@@ -343,6 +610,7 @@ ipcMain.handle('export-accounts', async () => {
           const credentialsFile = `${name}-credentials.json`;
 
           if (fs.existsSync(path.join(claudeDir, credentialsFile))) {
+            // Read raw file data (keeps encrypted envelopes intact)
             accounts[name] = {
               credentials: JSON.parse(fs.readFileSync(path.join(claudeDir, credentialsFile), 'utf8')),
               config: JSON.parse(fs.readFileSync(path.join(claudeDir, file), 'utf8'))
@@ -354,7 +622,7 @@ ipcMain.handle('export-accounts', async () => {
       exportData.claude = accounts;
     }
 
-    // Export Codex accounts
+    // Export Codex accounts (store encrypted envelopes as-is)
     if (fs.existsSync(codexDir)) {
       const files = fs.readdirSync(codexDir);
       const accounts = {};
@@ -370,6 +638,8 @@ ipcMain.handle('export-accounts', async () => {
 
       exportData.codex = accounts;
     }
+
+    exportData.isEncrypted = !!currentPassword;
 
     // Show save dialog
     const result = await dialog.showSaveDialog(mainWindow, {
@@ -396,6 +666,7 @@ ipcMain.handle('export-accounts', async () => {
 // Import saved accounts
 ipcMain.handle('import-accounts', async () => {
   try {
+    requireAuthentication();
     // Show open dialog
     const result = await dialog.showOpenDialog(mainWindow, {
       title: 'Import Accounts',
@@ -433,8 +704,23 @@ ipcMain.handle('import-accounts', async () => {
       ensurePathWithin(credsPath, claudeDir);
       ensurePathWithin(configPath, claudeDir);
 
-      fs.writeFileSync(credsPath, JSON.stringify(data.credentials, null, 2), 'utf8');
-      fs.writeFileSync(configPath, JSON.stringify(data.config, null, 2), 'utf8');
+      // If imported data is already encrypted, store as-is; otherwise encrypt with current password
+      if (isEncryptedEnvelope(data.credentials) || isEncryptedEnvelope(data.config)) {
+        // Verify we can decrypt both files with current password before storing
+        if (currentPassword) {
+          try {
+            if (isEncryptedEnvelope(data.credentials)) decryptData(data.credentials, currentPassword);
+            if (isEncryptedEnvelope(data.config)) decryptData(data.config, currentPassword);
+          } catch (e) {
+            return { success: false, error: `Cannot decrypt imported account "${rawName}". Was it exported with a different password?` };
+          }
+        }
+        fs.writeFileSync(credsPath, JSON.stringify(data.credentials, null, 2), 'utf8');
+        fs.writeFileSync(configPath, JSON.stringify(data.config, null, 2), 'utf8');
+      } else {
+        writeAccountFile(credsPath, data.credentials);
+        writeAccountFile(configPath, data.config);
+      }
       imported.claude++;
     }
 
@@ -448,7 +734,17 @@ ipcMain.handle('import-accounts', async () => {
       const name = sanitizeAccountName(rawName);
       const authPath = path.join(codexDir, `${name}.json`);
       ensurePathWithin(authPath, codexDir);
-      fs.writeFileSync(authPath, JSON.stringify(data.auth, null, 2), 'utf8');
+
+      if (isEncryptedEnvelope(data.auth)) {
+        if (currentPassword) {
+          try { decryptData(data.auth, currentPassword); } catch (e) {
+            return { success: false, error: `Cannot decrypt imported account "${rawName}". Was it exported with a different password?` };
+          }
+        }
+        fs.writeFileSync(authPath, JSON.stringify(data.auth, null, 2), 'utf8');
+      } else {
+        writeAccountFile(authPath, data.auth);
+      }
       imported.codex++;
     }
 

@@ -374,8 +374,10 @@ function setupEventDelegation() {
   });
 }
 
-// Start polling when page loads
-window.addEventListener('DOMContentLoaded', () => {
+// ============================================
+// APP INIT (called after password gate passes)
+// ============================================
+function initApp() {
   // Set up event delegation for dynamic buttons
   setupEventDelegation();
 
@@ -388,6 +390,209 @@ window.addEventListener('DOMContentLoaded', () => {
   setInterval(pollCurrentAccounts, 5000);
   // Poll API usage stats every 60 seconds
   setInterval(loadUsageStats, 60000);
+}
+
+// ============================================
+// PASSWORD GATE
+// ============================================
+
+async function initPasswordGate() {
+  const modal = document.getElementById('password-modal');
+  const loginForm = document.getElementById('password-login-form');
+  const setupForm = document.getElementById('password-setup-form');
+
+  const { configured, hasOrphaned } = await window.api.checkPassword();
+
+  if (configured) {
+    // Show login form
+    modal.style.display = 'flex';
+    loginForm.style.display = 'block';
+    setupForm.style.display = 'none';
+    document.getElementById('password-login-input').focus();
+    setupPasswordLoginHandlers();
+  } else {
+    // Show setup form
+    modal.style.display = 'flex';
+    loginForm.style.display = 'none';
+    setupForm.style.display = 'block';
+    // Warn about orphaned encrypted files
+    if (hasOrphaned) {
+      const setupError = document.getElementById('password-setup-error');
+      setupError.textContent = 'Warning: Encrypted accounts from a previous password were found. They will be inaccessible with a new password. Delete them first if needed.';
+      setupError.style.color = '#d97706';
+    }
+    document.getElementById('password-setup-input').focus();
+    setupPasswordSetupHandlers();
+  }
+}
+
+function setupPasswordLoginHandlers() {
+  const input = document.getElementById('password-login-input');
+  const btn = document.getElementById('password-login-btn');
+  const error = document.getElementById('password-login-error');
+
+  async function doLogin() {
+    const password = input.value;
+    if (!password) {
+      error.textContent = 'Please enter your password.';
+      return;
+    }
+    error.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Unlocking...';
+
+    try {
+      const result = await window.api.verifyPassword(password);
+      if (result.success) {
+        document.getElementById('password-modal').style.display = 'none';
+        initApp();
+      } else {
+        error.textContent = 'Incorrect password. Try again.';
+        input.value = '';
+        input.focus();
+        btn.disabled = false;
+        btn.textContent = 'Unlock';
+      }
+    } catch (e) {
+      error.textContent = 'An error occurred. Please try again.';
+      btn.disabled = false;
+      btn.textContent = 'Unlock';
+    }
+  }
+
+  btn.addEventListener('click', doLogin);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doLogin();
+  });
+}
+
+function setupPasswordSetupHandlers() {
+  const inputNew = document.getElementById('password-setup-input');
+  const inputConfirm = document.getElementById('password-setup-confirm');
+  const btn = document.getElementById('password-setup-btn');
+  const error = document.getElementById('password-setup-error');
+
+  async function doSetup() {
+    const password = inputNew.value;
+    const confirm = inputConfirm.value;
+
+    if (!password) {
+      error.textContent = 'Please enter a password.';
+      return;
+    }
+    if (password.length < 4) {
+      error.textContent = 'Password must be at least 4 characters.';
+      return;
+    }
+    if (password !== confirm) {
+      error.textContent = 'Passwords do not match.';
+      return;
+    }
+    error.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Setting up...';
+
+    try {
+      const result = await window.api.setupPassword(password);
+      if (result.success) {
+        document.getElementById('password-modal').style.display = 'none';
+        initApp();
+      } else {
+        error.textContent = result.error || 'Failed to set password.';
+        btn.disabled = false;
+        btn.textContent = 'Set Password';
+      }
+    } catch (e) {
+      error.textContent = 'An error occurred. Please try again.';
+      btn.disabled = false;
+      btn.textContent = 'Set Password';
+    }
+  }
+
+  btn.addEventListener('click', doSetup);
+  inputConfirm.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doSetup();
+  });
+}
+
+// ============================================
+// CHANGE PASSWORD
+// ============================================
+
+function setupChangePasswordHandlers() {
+  const openBtn = document.getElementById('change-password-open-btn');
+  const modal = document.getElementById('change-password-modal');
+  const cancelBtn = document.getElementById('change-password-cancel');
+  const submitBtn = document.getElementById('change-password-btn');
+  const oldInput = document.getElementById('change-password-old');
+  const newInput = document.getElementById('change-password-new');
+  const confirmInput = document.getElementById('change-password-confirm');
+  const error = document.getElementById('change-password-error');
+
+  openBtn.addEventListener('click', () => {
+    modal.style.display = 'flex';
+    oldInput.value = '';
+    newInput.value = '';
+    confirmInput.value = '';
+    error.textContent = '';
+    oldInput.focus();
+  });
+
+  cancelBtn.addEventListener('click', () => {
+    modal.style.display = 'none';
+  });
+
+  async function doChange() {
+    const oldPw = oldInput.value;
+    const newPw = newInput.value;
+    const confirmPw = confirmInput.value;
+
+    if (!oldPw) {
+      error.textContent = 'Please enter your current password.';
+      return;
+    }
+    if (!newPw) {
+      error.textContent = 'Please enter a new password.';
+      return;
+    }
+    if (newPw.length < 4) {
+      error.textContent = 'New password must be at least 4 characters.';
+      return;
+    }
+    if (newPw !== confirmPw) {
+      error.textContent = 'New passwords do not match.';
+      return;
+    }
+    error.textContent = '';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Changing...';
+
+    try {
+      const result = await window.api.changePassword(oldPw, newPw);
+      if (result.success) {
+        modal.style.display = 'none';
+        const service = getActiveService();
+        await showAlert('Password changed successfully!', service);
+      } else {
+        error.textContent = result.error || 'Failed to change password.';
+      }
+    } catch (e) {
+      error.textContent = 'An error occurred. Please try again.';
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Change Password';
+  }
+
+  submitBtn.addEventListener('click', doChange);
+  confirmInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') doChange();
+  });
+}
+
+// Start with password gate
+window.addEventListener('DOMContentLoaded', () => {
+  setupChangePasswordHandlers();
+  initPasswordGate();
 });
 
 // ============================================
@@ -559,7 +764,7 @@ async function loadUsageStats() {
           <div class="usage-unavailable">
             <p>${escapeHtml(usage.codex.message)}</p>
             ${usage.codex.planType ? `<p><small>Plan: ${escapeHtml(usage.codex.planType.toUpperCase())}</small></p>` : ''}
-            <a href="https://chatgpt.com/settings" target="_blank" class="dashboard-link">View Usage Dashboard</a>
+            <button class="dashboard-link" onclick="window.open('https://chatgpt.com/settings')">View Usage Dashboard</button>
           </div>
         `;
       } else {

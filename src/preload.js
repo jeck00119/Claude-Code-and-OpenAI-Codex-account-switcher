@@ -9,5 +9,9 @@ contextBridge.exposeInMainWorld('api', {
   forceWindowFocus: () => ipcRenderer.invoke('force-window-focus'),
   exportAccounts: () => ipcRenderer.invoke('export-accounts'),
   importAccounts: () => ipcRenderer.invoke('import-accounts'),
-  getUsageStats: () => ipcRenderer.invoke('get-usage-stats')
+  getUsageStats: () => ipcRenderer.invoke('get-usage-stats'),
+  checkPassword: () => ipcRenderer.invoke('password-check'),
+  setupPassword: (password) => ipcRenderer.invoke('password-setup', { password }),
+  verifyPassword: (password) => ipcRenderer.invoke('password-verify', { password }),
+  changePassword: (oldPassword, newPassword) => ipcRenderer.invoke('password-change', { oldPassword, newPassword })
 });
