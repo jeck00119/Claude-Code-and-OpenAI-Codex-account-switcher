@@ -20,20 +20,19 @@ Instantly switch between multiple accounts without logging out.
 
 ## Quick Start
 
-1. **Clone and install**
+1. **Prerequisites**: [Node.js](https://nodejs.org/) (LTS) must be installed
+
+2. **Clone and launch** — dependencies install automatically on first run
    ```bash
    git clone https://github.com/jeck00119/Claude-Code-and-OpenAI-Codex-account-switcher.git
    cd Claude-Code-and-OpenAI-Codex-account-switcher
-   npm install
    ```
-
-2. **Launch**
 
    | Platform | Command |
    |----------|---------|
    | **Windows** | Double-click `start.bat` |
    | **macOS / Linux** | `./start.sh` |
-   | **Any** | `npm start` |
+   | **Any** | `npm install && npm start` |
 
    By default the launcher runs without a terminal window. Use `--console` to see output:
    ```bash
