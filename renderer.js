@@ -122,11 +122,38 @@ function renderCurrentAccounts(accounts) {
   }
 }
 
+// Auto-fill save input with detected email (only if user hasn't typed something)
+function autoFillSaveName(service, email) {
+  const input = document.getElementById(`${service}-save-name`);
+  if (!input || !email || email === 'Unknown') return;
+  // Only auto-fill if empty or was previously auto-filled
+  if (input.value === '' || input.dataset.autoFilled === 'true') {
+    input.value = email;
+    input.dataset.autoFilled = 'true';
+  }
+}
+
+// Clear auto-fill flag when user types manually
+document.getElementById('claude-save-name').addEventListener('input', (e) => {
+  e.target.dataset.autoFilled = 'false';
+});
+document.getElementById('codex-save-name').addEventListener('input', (e) => {
+  e.target.dataset.autoFilled = 'false';
+});
+
 // Load current accounts
 async function loadCurrentAccounts() {
   try {
     const accounts = await window.api.getCurrentAccounts();
     renderCurrentAccounts(accounts);
+
+    // Auto-fill save names with detected emails
+    if (accounts.claude.exists) {
+      autoFillSaveName('claude', accounts.claude.email);
+    }
+    if (accounts.codex.exists) {
+      autoFillSaveName('codex', accounts.codex.email);
+    }
   } catch (error) {
     console.error('Error loading current accounts:', error);
   }

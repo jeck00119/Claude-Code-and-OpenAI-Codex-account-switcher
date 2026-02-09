@@ -10,7 +10,7 @@
   <div class="container">
     <header>
       <h1>Account Switcher</h1>
-      <p class="subtitle">Switch between Claude Code and OpenAI Codex accounts</p>
+      <p class="subtitle">Claude Code &amp; OpenAI Codex</p>
     </header>
 
     <div class="tabs">
@@ -20,84 +20,106 @@
 
     <!-- Claude Code Tab -->
     <div class="tab-content active" id="claude-tab">
-      <div class="current-account">
-        <h2>Current Account</h2>
-        <div id="claude-current-info" class="account-info">
-          <div class="loading">Loading...</div>
+
+      <div class="section">
+        <div class="section-header">Status</div>
+        <div class="section-body">
+          <div class="current-account">
+            <h2>Current Account</h2>
+            <div id="claude-current-info" class="account-info">
+              <div class="loading">Loading...</div>
+            </div>
+          </div>
+          <div class="usage-stats" id="claude-usage-stats">
+            <h3>
+              <span>Token Usage</span>
+              <button class="collapse-btn" data-action="toggle-usage" data-service="claude">&#9660;</button>
+            </h3>
+            <div class="usage-content" id="claude-usage-content">
+              <div class="loading">Loading usage data...</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="usage-stats" id="claude-usage-stats">
-        <h3>
-          <span>Token Usage</span>
-          <button class="collapse-btn" data-action="toggle-usage" data-service="claude">▼</button>
-        </h3>
-        <div class="usage-content" id="claude-usage-content">
-          <div class="loading">Loading usage data...</div>
+      <div class="section">
+        <div class="section-header">Manage Accounts</div>
+        <div class="section-body">
+          <div class="save-section">
+            <h3>Save Current Account</h3>
+            <div class="input-group">
+              <input type="text" id="claude-save-name" placeholder="Account name (e.g. Work, Personal)">
+              <button id="claude-save-btn" class="btn btn-primary">Save</button>
+            </div>
+          </div>
+          <div class="accounts-list">
+            <h3>Saved Accounts</h3>
+            <div id="claude-accounts" class="accounts-grid">
+              <div class="loading">Loading...</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="save-section">
-        <h3>Save Current Account</h3>
-        <div class="input-group">
-          <input type="text" id="claude-save-name" placeholder="Enter account name (e.g., Work, Personal)">
-          <button id="claude-save-btn" class="btn btn-primary">Save</button>
-        </div>
-      </div>
-
-      <div class="accounts-list">
-        <h3>Saved Accounts</h3>
-        <div id="claude-accounts" class="accounts-grid">
-          <div class="loading">Loading...</div>
-        </div>
-      </div>
     </div>
 
     <!-- OpenAI Codex Tab -->
     <div class="tab-content" id="codex-tab">
-      <div class="current-account">
-        <h2>Current Account</h2>
-        <div id="codex-current-info" class="account-info">
-          <div class="loading">Loading...</div>
+
+      <div class="section">
+        <div class="section-header">Status</div>
+        <div class="section-body">
+          <div class="current-account">
+            <h2>Current Account</h2>
+            <div id="codex-current-info" class="account-info">
+              <div class="loading">Loading...</div>
+            </div>
+          </div>
+          <div class="usage-stats" id="codex-usage-stats">
+            <h3>
+              <span>Token Usage</span>
+              <button class="collapse-btn" data-action="toggle-usage" data-service="codex">&#9660;</button>
+            </h3>
+            <div class="usage-content" id="codex-usage-content">
+              <div class="loading">Loading usage data...</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="usage-stats" id="codex-usage-stats">
-        <h3>
-          <span>Token Usage</span>
-          <button class="collapse-btn" data-action="toggle-usage" data-service="codex">▼</button>
-        </h3>
-        <div class="usage-content" id="codex-usage-content">
-          <div class="loading">Loading usage data...</div>
+      <div class="section">
+        <div class="section-header">Manage Accounts</div>
+        <div class="section-body">
+          <div class="save-section">
+            <h3>Save Current Account</h3>
+            <div class="input-group">
+              <input type="text" id="codex-save-name" placeholder="Account name (e.g. Work, Personal)">
+              <button id="codex-save-btn" class="btn btn-primary">Save</button>
+            </div>
+          </div>
+          <div class="accounts-list">
+            <h3>Saved Accounts</h3>
+            <div id="codex-accounts" class="accounts-grid">
+              <div class="loading">Loading...</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="save-section">
-        <h3>Save Current Account</h3>
-        <div class="input-group">
-          <input type="text" id="codex-save-name" placeholder="Enter account name (e.g., Work, Personal)">
-          <button id="codex-save-btn" class="btn btn-primary">Save</button>
-        </div>
-      </div>
-
-      <div class="accounts-list">
-        <h3>Saved Accounts</h3>
-        <div id="codex-accounts" class="accounts-grid">
-          <div class="loading">Loading...</div>
-        </div>
-      </div>
     </div>
 
-    <div class="import-export-section">
-      <h3>Backup & Restore</h3>
-      <div class="button-group">
-        <button id="export-btn" class="btn btn-secondary">Export All Accounts</button>
-        <button id="import-btn" class="btn btn-secondary">Import Accounts</button>
+    <div class="section section-outside">
+      <div class="section-header">Backup &amp; Restore</div>
+      <div class="section-body">
+        <div class="button-group">
+          <button id="export-btn" class="btn btn-secondary">Export All Accounts</button>
+          <button id="import-btn" class="btn btn-secondary">Import Accounts</button>
+        </div>
       </div>
     </div>
 
     <div class="notice">
-      <strong>Note:</strong> After switching accounts, you'll need to restart Claude Code or OpenAI Codex for changes to take effect.
+      <strong>Note:</strong> After switching accounts, restart Claude Code or OpenAI Codex for changes to take effect.
     </div>
   </div>
 

@@ -2,8 +2,18 @@
 setlocal
 
 cd /d "%~dp0"
-echo Starting Account Switcher...
 
+:: If --console flag is passed, run with visible console
+if "%~1"=="--console" goto :run
+
+:: Default: relaunch hidden via inline VBS
+set "vbs=%temp%\account-switcher-launch.vbs"
+> "%vbs%" echo CreateObject("Wscript.Shell").Run "cmd /c ""%~f0"" --console", 0, False
+wscript "%vbs%"
+del "%vbs%" 2>nul
+goto :eof
+
+:run
 call :ensure_npm || goto :eof
 call :ensure_dependencies || goto :eof
 call npm start

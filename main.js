@@ -54,8 +54,8 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 700,
+    width: 520,
+    height: 680,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -658,7 +658,10 @@ function getCodexUsageFromSessions() {
       try {
         const line = JSON.parse(lines[i]);
         if (line.payload && line.payload.rate_limits) {
-          return line.payload.rate_limits;
+          return {
+            rateLimits: line.payload.rate_limits,
+            timestamp: line.timestamp || null
+          };
         }
       } catch (e) {
         // Skip invalid JSON lines
@@ -695,9 +698,9 @@ async function getCodexUsageStats() {
     }
 
     // Read from most recent Codex session file
-    const rateLimits = getCodexUsageFromSessions();
+    const sessionData = getCodexUsageFromSessions();
 
-    if (!rateLimits || !rateLimits.primary || !rateLimits.secondary) {
+    if (!sessionData || !sessionData.rateLimits?.primary || !sessionData.rateLimits?.secondary) {
       return {
         available: false,
         message: 'No recent Codex usage data found. Please use Codex CLI to generate usage data.',
@@ -706,12 +709,18 @@ async function getCodexUsageStats() {
       };
     }
 
-    // Convert Unix timestamps to ISO strings
-    const primaryResetAt = rateLimits.primary.resets_at ?
-      new Date(rateLimits.primary.resets_at * 1000).toISOString() : null;
+    const { rateLimits, timestamp } = sessionData;
 
-    const secondaryResetAt = rateLimits.secondary.resets_at ?
-      new Date(rateLimits.secondary.resets_at * 1000).toISOString() : null;
+    // Compute reset times from resets_in_seconds (relative to event timestamp)
+    const eventTime = timestamp ? new Date(timestamp).getTime() : Date.now();
+
+    const primaryResetAt = rateLimits.primary.resets_in_seconds
+      ? new Date(eventTime + rateLimits.primary.resets_in_seconds * 1000).toISOString()
+      : null;
+
+    const secondaryResetAt = rateLimits.secondary.resets_in_seconds
+      ? new Date(eventTime + rateLimits.secondary.resets_in_seconds * 1000).toISOString()
+      : null;
 
     return {
       available: true,
